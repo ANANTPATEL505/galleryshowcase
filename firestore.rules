@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Gallery config — public read (needed for PIN check), admin write
+    match /gallery/config {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Media items — public read, admin write/delete
+    match /media/{docId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+  }
+}

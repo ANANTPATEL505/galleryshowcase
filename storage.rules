@@ -1,0 +1,3 @@
+# Firebase Storage is NOT used in this project.
+# All media files are stored on Cloudinary (free tier).
+# See README.md for Cloudinary setup instructions.
