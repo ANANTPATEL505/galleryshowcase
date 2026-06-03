@@ -145,3 +145,62 @@ html, body {
 .pulse-ring {
   animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
+
+/* ── Photo / Video card hover effects ── */
+.media-thumb {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.media-thumb:hover {
+  transform: scale(1.03);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.media-thumb img,
+.media-thumb video {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+.media-thumb:hover img { transform: scale(1.06); }
+
+.media-thumb-overlay {
+  position: absolute; inset: 0;
+  background: rgba(5,5,8,0);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.25s ease;
+}
+.media-thumb:hover .media-thumb-overlay {
+  background: rgba(5,5,8,0.38);
+}
+.media-thumb-overlay svg {
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.media-thumb:hover .media-thumb-overlay svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.media-thumb-caption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 22px 10px 8px;
+  background: linear-gradient(transparent, rgba(5,5,8,0.9));
+}
+
+/* Video card aspect ratio */
+.video-thumb { aspect-ratio: 16 / 10; }
+.photo-thumb { aspect-ratio: 1 / 1; }
+
+/* Hub mode card hover */
+.hub-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.hub-card:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+.hub-card:active { transform: scale(0.98); }
