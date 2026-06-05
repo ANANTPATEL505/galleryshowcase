@@ -1,11 +1,14 @@
 {
   "functions": {
     "app/api/upload/route.ts": {
-      "maxDuration": 60,
+      "maxDuration": 30,
       "memory": 1024
     },
+    "app/api/upload-signature/route.ts": {
+      "maxDuration": 10
+    },
     "app/api/delete-media/route.ts": {
-      "maxDuration": 30
+      "maxDuration": 15
     },
     "app/api/verify-pin/route.ts": {
       "maxDuration": 10
@@ -17,7 +20,6 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     },

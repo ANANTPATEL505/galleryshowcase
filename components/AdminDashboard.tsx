@@ -83,12 +83,15 @@ export default function AdminDashboard() {
     });
     setUploads(Object.values(progressMap));
 
+    let successCount = 0;
+    let failCount = 0;
+
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
       try {
         const { url, storagePath } = await uploadMedia(file, (p) => {
           progressMap[file.name] = p;
-          setUploads(Object.values(progressMap));
+          setUploads(Object.values({ ...progressMap }));
         });
         const id = await addMediaItem({
           url,
@@ -100,17 +103,23 @@ export default function AdminDashboard() {
           uploadedAt: new Date().toISOString(),
           caption: "",
         });
-        setItems((prev) => [...prev, { id, url, storagePath, filename: file.name, type: isVideoFile(file.name) ? "video" : "image", size: file.size, order: nextOrder + i, uploadedAt: new Date(), caption: "" }]);
+        setItems((prev) => [...prev, {
+          id, url, storagePath, filename: file.name,
+          type: isVideoFile(file.name) ? "video" : "image",
+          size: file.size, order: nextOrder + i, uploadedAt: new Date(), caption: "",
+        }]);
+        successCount++;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Upload failed";
         progressMap[file.name] = { filename: file.name, progress: 0, status: "error", error: msg };
-        setUploads(Object.values(progressMap));
-        toast.error(`Failed to upload ${file.name}`);
+        setUploads(Object.values({ ...progressMap }));
+        toast.error(`${file.name}: ${msg}`);
+        failCount++;
       }
     }
 
-    setTimeout(() => setUploads([]), 3000);
-    toast.success(`${validFiles.length} file(s) uploaded!`);
+    if (successCount > 0) toast.success(`${successCount} file${successCount > 1 ? "s" : ""} uploaded!`);
+    setTimeout(() => setUploads([]), 4000);
   };
 
   const handleDelete = async (item: MediaItem) => {
@@ -236,6 +245,22 @@ export default function AdminDashboard() {
 
               {/* Upload zone */}
               <UploadZone onFiles={handleFiles} dragOver={dragOver} setDragOver={setDragOver} />
+
+              {/* Upload limits info */}
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:8 }}>
+                {[
+                  { icon:"📷", label:"Images", detail:"up to 10 MB · JPG PNG WEBP HEIC" },
+                  { icon:"🎬", label:"Videos", detail:"up to 100 MB · MP4 MOV WEBM" },
+                  { icon:"☁️", label:"Direct upload", detail:"Videos go straight to Cloudinary — no server limit" },
+                ].map((item) => (
+                  <div key={item.label} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 12px", borderRadius:8, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)" }}>
+                    <span style={{ fontSize:13 }}>{item.icon}</span>
+                    <span style={{ fontSize:11, color:"rgba(245,245,247,0.35)", letterSpacing:"0.2px" }}>
+                      <span style={{ color:"rgba(245,245,247,0.6)", fontWeight:500 }}>{item.label}</span> — {item.detail}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
               {/* Upload progress */}
               <AnimatePresence>

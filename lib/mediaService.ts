@@ -74,7 +74,6 @@ export async function updateMediaItem(
 }
 
 export async function deleteMediaItem(item: MediaItem): Promise<void> {
-  // Delete from Cloudinary via API route (keeps secret server-side)
   if (item.storagePath) {
     try {
       await fetch("/api/delete-media", {
@@ -86,22 +85,49 @@ export async function deleteMediaItem(item: MediaItem): Promise<void> {
       console.error("Cloudinary delete error:", e);
     }
   }
-  // Delete Firestore document
   await deleteDoc(doc(db, MEDIA_COLLECTION, item.id));
 }
 
 export async function reorderMediaItems(items: MediaItem[]): Promise<void> {
-  const updates = items.map((item, index) =>
-    updateDoc(doc(db, MEDIA_COLLECTION, item.id), { order: index })
+  await Promise.all(
+    items.map((item, index) =>
+      updateDoc(doc(db, MEDIA_COLLECTION, item.id), { order: index })
+    )
   );
-  await Promise.all(updates);
 }
 
-// ─── Upload via Cloudinary (through Next.js API route) ───────────────────────
+// ─── Upload ───────────────────────────────────────────────────────────────────
+//
+// Strategy:
+//   • Images  ≤ 9 MB  → POST /api/upload  (Next.js route → Cloudinary)
+//   • Videos  any size → direct XHR to Cloudinary using a signed URL
+//     from /api/upload-signature  (bypasses Vercel body limit / timeout)
+//
+// Cloudinary free tier limits:
+//   • Images: up to 10 MB per file
+//   • Videos: up to 100 MB per file (free), 2 GB (paid)
+//   • Total storage: 25 GB
+//   • Bandwidth: 25 GB / month
+
+const IMAGE_SERVER_LIMIT = 9 * 1024 * 1024; // 9 MB
 
 export function uploadMedia(
   file: File,
-  onProgress: (progress: UploadProgress) => void
+  onProgress: (p: UploadProgress) => void
+): Promise<{ url: string; storagePath: string }> {
+  const isVideo = file.type.startsWith("video/");
+
+  // Always use direct upload for videos; use server route for small images
+  if (isVideo || file.size > IMAGE_SERVER_LIMIT) {
+    return uploadDirect(file, onProgress);
+  }
+  return uploadViaServer(file, onProgress);
+}
+
+/** Upload through Next.js API route (images only, ≤ 9 MB) */
+function uploadViaServer(
+  file: File,
+  onProgress: (p: UploadProgress) => void
 ): Promise<{ url: string; storagePath: string }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -110,8 +136,7 @@ export function uploadMedia(
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
-        const pct = (e.loaded / e.total) * 100;
-        onProgress({ filename: file.name, progress: pct, status: "uploading" });
+        onProgress({ filename: file.name, progress: (e.loaded / e.total) * 100, status: "uploading" });
       }
     });
 
@@ -133,12 +158,82 @@ export function uploadMedia(
     });
 
     xhr.addEventListener("error", () => {
-      const msg = "Network error during upload";
+      const msg = "Network error";
       onProgress({ filename: file.name, progress: 0, status: "error", error: msg });
       reject(new Error(msg));
     });
 
     xhr.open("POST", "/api/upload");
+    xhr.send(formData);
+  });
+}
+
+/** Upload DIRECTLY from browser to Cloudinary (videos, large files) */
+async function uploadDirect(
+  file: File,
+  onProgress: (p: UploadProgress) => void
+): Promise<{ url: string; storagePath: string }> {
+  // 1. Get a signed upload params from our server
+  const sigRes = await fetch("/api/upload-signature", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resourceType: file.type.startsWith("video/") ? "video" : "image" }),
+  });
+
+  if (!sigRes.ok) throw new Error("Could not get upload signature");
+
+  const { signature, timestamp, folder, cloudName, apiKey, resourceType } =
+    await sigRes.json();
+
+  // 2. POST directly to Cloudinary upload endpoint
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("signature", signature);
+    formData.append("timestamp", String(timestamp));
+    formData.append("folder", folder);
+    formData.append("api_key", apiKey);
+
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        onProgress({
+          filename: file.name,
+          progress: (e.loaded / e.total) * 100,
+          status: "uploading",
+        });
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          onProgress({ filename: file.name, progress: 100, status: "complete" });
+          resolve({ url: data.secure_url, storagePath: data.public_id });
+        } catch {
+          reject(new Error("Invalid Cloudinary response"));
+        }
+      } else {
+        let msg = "Upload failed";
+        try {
+          const err = JSON.parse(xhr.responseText);
+          msg = err?.error?.message ?? msg;
+        } catch {}
+        onProgress({ filename: file.name, progress: 0, status: "error", error: msg });
+        reject(new Error(msg));
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      const msg = "Network error during upload";
+      onProgress({ filename: file.name, progress: 0, status: "error", error: msg });
+      reject(new Error(msg));
+    });
+
+    xhr.open("POST", uploadUrl);
     xhr.send(formData);
   });
 }

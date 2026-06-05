@@ -108,10 +108,10 @@ export default function UploadZone({ onFiles, dragOver, setDragOver }: UploadZon
           {dragOver ? "Drop files here" : "Upload photos & videos"}
         </p>
         <p style={{ fontSize: 13, color: "rgba(245,245,247,0.3)", marginBottom: 16 }}>
-          Drag & drop or click to browse
+          Drag & drop or click · Images up to 10 MB · Videos up to 100 MB
         </p>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-          {["JPG", "PNG", "HEIC", "MP4", "MOV"].map((fmt) => (
+          {["JPG", "PNG", "WEBP", "HEIC", "MP4", "MOV", "WEBM"].map((fmt) => (
             <span key={fmt} style={{ padding: "3px 10px", borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 11, color: "rgba(245,245,247,0.4)", letterSpacing: "0.5px" }}>
               {fmt}
             </span>
