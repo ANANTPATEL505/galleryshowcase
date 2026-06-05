@@ -709,6 +709,18 @@ export default function GalleryPage() {
   const [config, setConfig] = useState<{ title: string; slideshowInterval: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("hub");
+  const router = useRouter();
+
+  // Read ?mode=photos|videos|slideshow from URL on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get("mode") as Mode | null;
+      if (m && ["photos", "videos", "slideshow"].includes(m)) setMode(m);
+    }
+  }, []);
+
+  const goBack = () => router.push("/");
 
   useEffect(() => {
     Promise.all([getMediaItems(), getGalleryConfig()]).then(([media, cfg]) => {
@@ -738,17 +750,17 @@ export default function GalleryPage() {
       )}
       {mode === "photos" && (
         <motion.div key="photos" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -22 }} transition={{ duration: 0.3 }}>
-          <PhotosView items={items} onBack={() => setMode("hub")} />
+          <PhotosView items={items} onBack={goBack} />
         </motion.div>
       )}
       {mode === "videos" && (
         <motion.div key="videos" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -22 }} transition={{ duration: 0.3 }}>
-          <VideosView items={items} onBack={() => setMode("hub")} />
+          <VideosView items={items} onBack={goBack} />
         </motion.div>
       )}
       {mode === "slideshow" && (
         <motion.div key="slideshow" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.32 }}>
-          <SlideshowView items={items} config={config} onBack={() => setMode("hub")} />
+          <SlideshowView items={items} config={config} onBack={goBack} />
         </motion.div>
       )}
     </AnimatePresence>
